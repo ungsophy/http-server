@@ -11,18 +11,23 @@ const (
 )
 
 func main() {
-	server, listenErr := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%s", PORT))
+	listener, listenErr := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%s", PORT))
 	if listenErr != nil {
 		fmt.Printf("failed to bind to port %s\n", PORT)
 		os.Exit(1)
 	}
+	defer listener.Close()
 
-	conn, acceptErr := server.Accept()
-	if acceptErr != nil {
-		fmt.Println("error accepting connection: ", acceptErr.Error())
-		os.Exit(1)
+	for {
+		conn, acceptErr := listener.Accept()
+		if acceptErr != nil {
+			fmt.Println("error accepting connection: ", acceptErr.Error())
+			os.Exit(1)
+		}
+
+		go func(c net.Conn) {
+			defer conn.Close()
+			conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
+		}(conn)
 	}
-	defer conn.Close()
-
-	conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
 }
