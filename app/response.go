@@ -5,6 +5,13 @@ import (
 	"fmt"
 )
 
+var (
+	statusMap = map[int]string{
+		200: "OK",
+		404: "Not Found",
+	}
+)
+
 type Response struct {
 	StatusCode int
 	Protocol   string
@@ -16,7 +23,7 @@ func (r *Response) Bytes() []byte {
 	var b bytes.Buffer
 
 	// Write the status line
-	b.WriteString(fmt.Sprintf("%v %d\r\n", r.HTTPProtocol(), r.StatusCode))
+	b.WriteString(fmt.Sprintf("%v %v\r\n", r.HTTPProtocol(), r.Status()))
 
 	// Write headers
 	for k, v := range r.Headers {
@@ -33,5 +40,15 @@ func (r *Response) HTTPProtocol() string {
 	if r.Protocol == "" {
 		return "HTTP/1.1"
 	}
+
 	return r.Protocol
+}
+
+func (r *Response) Status() string {
+	strStatus, exists := statusMap[r.StatusCode]
+	if exists {
+		return fmt.Sprintf("%d %s", r.StatusCode, strStatus)
+	}
+
+	return fmt.Sprintf("%d", r.StatusCode)
 }
