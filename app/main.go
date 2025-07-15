@@ -26,8 +26,31 @@ func main() {
 		}
 
 		go func(c net.Conn) {
-			defer conn.Close()
-			conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
+			defer c.Close()
+
+			reqBuf := make([]byte, 1024)
+			_, readErr := c.Read(reqBuf)
+			if readErr != nil {
+				fmt.Println("error reading request: ", readErr.Error())
+				return
+			}
+			req, err := ParseRequest(reqBuf)
+			if err != nil {
+				fmt.Println("error parsing request: ", err.Error())
+				return
+			}
+
+			var statusCode int
+			if req.Path == "/" {
+				statusCode = 200
+			} else {
+				statusCode = 404
+			}
+
+			resp := &Response{
+				StatusCode: statusCode,
+			}
+			c.Write(resp.Bytes())
 		}(conn)
 	}
 }
