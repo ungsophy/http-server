@@ -47,6 +47,10 @@ func main() {
 
 			if req.Path == "/" {
 				statusCode = 200
+			} else if req.Path == "/user-agent" {
+				statusCode = 200
+				headers["Content-Type"] = "text/plain"
+				body = []byte(req.Headers["User-Agent"])
 			} else if strings.Index(req.Path, "/echo") == 0 {
 				statusCode = 200
 				headers["Content-Type"] = "text/plain"
