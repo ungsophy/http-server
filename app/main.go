@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 )
 
 const (
@@ -40,15 +41,22 @@ func main() {
 				return
 			}
 
-			var statusCode int
+			var statusCode int = 404
+			var headers = make(map[string]string)
+			var body []byte
+
 			if req.Path == "/" {
 				statusCode = 200
-			} else {
-				statusCode = 404
+			} else if strings.Index(req.Path, "/echo") == 0 {
+				statusCode = 200
+				headers["Content-Type"] = "text/plain"
+				body = []byte(strings.Replace(req.Path, "/echo/", "", 1))
 			}
 
 			resp := &Response{
 				StatusCode: statusCode,
+				Headers:    headers,
+				Body:       body,
 			}
 			c.Write(resp.Bytes())
 		}(conn)
