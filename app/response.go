@@ -8,6 +8,7 @@ import (
 var (
 	statusMap = map[int]string{
 		200: "OK",
+		201: "Created",
 		404: "Not Found",
 	}
 )

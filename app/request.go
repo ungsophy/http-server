@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"strconv"
 )
 
 var (
@@ -50,7 +51,18 @@ func ParseRequest(data []byte) (*Request, error) {
 	if bodyStartIndex == -1 {
 		return nil, fmt.Errorf("invalid end of headers")
 	}
-	body := data[bodyStartIndex+4:] // +4 to skip the \r\n\r\n
+	bodyStartIndex = bodyStartIndex + 4 // +4 to skip the \r\n\r\n
+
+	var body []byte
+	contentLength, exists := headers["Content-Length"]
+	if exists {
+		contentLengthInt, err := strconv.Atoi(contentLength)
+		if err != nil {
+			return nil, fmt.Errorf("invalid Content-Length header: %s", contentLength)
+		}
+
+		body = data[bodyStartIndex : bodyStartIndex+contentLengthInt]
+	}
 
 	return &Request{
 		Method:   string(requestLineParts[0]),

@@ -85,22 +85,42 @@ func handleConnection(conn net.Conn) {
 		_, filename := path.Split(req.Path)
 		filepath := filepath.Join(*directory, filename)
 
-		file, openErr := os.Open(filepath)
-		if openErr == nil {
-			var readErr error
-			body, readErr = io.ReadAll(file)
-			if readErr != nil {
-				fmt.Println("error reading file: ", readErr.Error())
+		switch req.Method {
+		case "GET":
+			file, openErr := os.Open(filepath)
+			defer file.Close()
+
+			if openErr == nil {
+				var readErr error
+				body, readErr = io.ReadAll(file)
+				if readErr != nil {
+					fmt.Println("error reading file: ", readErr.Error())
+					return
+				}
+
+				statusCode = 200
+				headers["Content-Type"] = "application/octet-stream"
+			} else {
+				fmt.Println("error opening file: ", openErr.Error())
+				statusCode = 404
+			}
+		case "POST":
+			file, createErr := os.Create(filepath)
+			defer file.Close()
+
+			if createErr != nil {
+				fmt.Println("error creating file: ", createErr.Error())
 				return
 			}
 
-			statusCode = 200
-			headers["Content-Type"] = "application/octet-stream"
-		} else {
-			fmt.Println("error opening file: ", openErr.Error())
-			statusCode = 404
+			_, writeErr := file.Write(req.Body)
+			if writeErr != nil {
+				fmt.Println("error writing file: ", writeErr.Error())
+				statusCode = 500
+			} else {
+				statusCode = 201
+			}
 		}
-		defer file.Close()
 	}
 
 	resp := &Response{
