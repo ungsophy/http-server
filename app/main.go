@@ -82,9 +82,6 @@ func handleConnection(conn net.Conn) {
 		headers["Content-Type"] = "text/plain"
 		body = []byte(req.Headers["User-Agent"])
 	} else if strings.Index(req.Path, "/echo/") == 0 {
-		statusCode = 200
-		headers["Content-Type"] = "text/plain"
-
 		strBody := strings.Replace(req.Path, "/echo/", "", 1)
 		for _, encoding := range req.Encodings() {
 			if encoder, exists := encoders[encoding]; exists {
@@ -93,6 +90,7 @@ func handleConnection(conn net.Conn) {
 					fmt.Println("error encoding response: ", encodeErr.Error())
 					return
 				}
+
 				body = encodedBody
 				headers["Content-Encoding"] = encoder.Name()
 				break
@@ -103,6 +101,9 @@ func handleConnection(conn net.Conn) {
 		if headers["Content-Encoding"] == "" {
 			body = []byte(strBody)
 		}
+
+		statusCode = 200
+		headers["Content-Type"] = "text/plain"
 	} else if strings.Index(req.Path, "/files/") == 0 {
 		// Ensure the directory is set
 		_, filename := path.Split(req.Path)

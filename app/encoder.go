@@ -25,6 +25,7 @@ func (g *GZipEncoder) Encode(data []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	zw.Flush()
 
 	return buf.Bytes(), nil
 }
