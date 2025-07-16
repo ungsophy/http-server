@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"compress/gzip"
 	"errors"
 	"flag"
 	"fmt"
@@ -79,7 +81,25 @@ func handleConnection(conn net.Conn) {
 	} else if strings.Index(req.Path, "/echo/") == 0 {
 		statusCode = 200
 		headers["Content-Type"] = "text/plain"
-		body = []byte(strings.Replace(req.Path, "/echo/", "", 1))
+
+		strBody := strings.Replace(req.Path, "/echo/", "", 1)
+		if req.Headers["Accept-Encoding"] == "gzip" {
+			headers["Content-Encoding"] = "gzip"
+
+			var buf bytes.Buffer
+			zw := gzip.NewWriter(&buf)
+			defer zw.Close()
+
+			_, writeErr := zw.Write([]byte(strBody))
+			if writeErr != nil {
+				fmt.Println("error writing gzipped response: ", writeErr.Error())
+				return
+			}
+			body = buf.Bytes()
+		} else {
+			body = []byte(strBody)
+		}
+
 	} else if strings.Index(req.Path, "/files/") == 0 {
 		// Ensure the directory is set
 		_, filename := path.Split(req.Path)
