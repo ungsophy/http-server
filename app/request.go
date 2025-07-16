@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"strconv"
+	"strings"
 )
 
 var (
@@ -96,4 +97,16 @@ func (r *Request) String() string {
 	b.Write(r.Body)
 
 	return b.String()
+}
+
+func (r *Request) Encodings() []string {
+	var encodings []string
+	if acceptEncoding, exists := r.Headers["Accept-Encoding"]; exists {
+		tmpEncodings := strings.Split(acceptEncoding, ",")
+		for _, encoding := range tmpEncodings {
+			encodings = append(encodings, strings.TrimSpace(encoding))
+		}
+	}
+
+	return encodings
 }

@@ -1,8 +1,6 @@
 package main
 
 import (
-	"bytes"
-	"compress/gzip"
 	"errors"
 	"flag"
 	"fmt"
@@ -15,11 +13,16 @@ import (
 )
 
 const (
-	PORT = "4221"
+	PORT         = "4221"
+	ENCODER_GZIP = "gzip"
 )
 
 var (
 	directory = flag.String("directory", "", "--directory /tmp")
+
+	encoders = map[string]Encoder{
+		ENCODER_GZIP: &GZipEncoder{},
+	}
 )
 
 func main() {
@@ -83,23 +86,23 @@ func handleConnection(conn net.Conn) {
 		headers["Content-Type"] = "text/plain"
 
 		strBody := strings.Replace(req.Path, "/echo/", "", 1)
-		if req.Headers["Accept-Encoding"] == "gzip" {
-			headers["Content-Encoding"] = "gzip"
-
-			var buf bytes.Buffer
-			zw := gzip.NewWriter(&buf)
-			defer zw.Close()
-
-			_, writeErr := zw.Write([]byte(strBody))
-			if writeErr != nil {
-				fmt.Println("error writing gzipped response: ", writeErr.Error())
-				return
+		for _, encoding := range req.Encodings() {
+			if encoder, exists := encoders[encoding]; exists {
+				encodedBody, encodeErr := encoder.Encode([]byte(strBody))
+				if encodeErr != nil {
+					fmt.Println("error encoding response: ", encodeErr.Error())
+					return
+				}
+				body = encodedBody
+				headers["Content-Encoding"] = encoder.Name()
+				break
 			}
-			body = buf.Bytes()
-		} else {
-			body = []byte(strBody)
 		}
 
+		// If no encoding was applied, use the original body
+		if headers["Content-Encoding"] == "" {
+			body = []byte(strBody)
+		}
 	} else if strings.Index(req.Path, "/files/") == 0 {
 		// Ensure the directory is set
 		_, filename := path.Split(req.Path)
