@@ -32,7 +32,7 @@ func (r *Response) Bytes() []byte {
 	}
 	b.WriteString(fmt.Sprintf("Content-Length: %d\r\n\r\n", len(r.Body)))
 
-	b.Write(r.Body)
+	b.WriteString(string(r.Body))
 
 	return b.Bytes()
 }

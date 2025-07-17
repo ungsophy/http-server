@@ -12,8 +12,8 @@ type Encoder interface {
 type GZipEncoder struct{}
 
 func (g *GZipEncoder) Encode(data []byte) ([]byte, error) {
-	var buf bytes.Buffer
-	zw := gzip.NewWriter(&buf)
+	buf := bytes.NewBuffer(nil)
+	zw := gzip.NewWriter(buf)
 	defer zw.Close()
 
 	_, writeErr := zw.Write(data)

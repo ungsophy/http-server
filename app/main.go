@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"compress/gzip"
 	"errors"
 	"flag"
 	"fmt"
@@ -88,29 +90,51 @@ func handleConnection(conn net.Conn) {
 		headers["Content-Type"] = "text/plain"
 		body = []byte(req.Headers["User-Agent"])
 	} else if strings.Index(req.Path, "/echo/") == 0 {
-		strBody := strings.Replace(req.Path, "/echo/", "", 1)
+		str := strings.Replace(req.Path, "/echo/", "", 1)
 
-		for _, encoding := range req.Encodings() {
-			if encoder, exists := encoders[encoding]; exists {
-				encodedBody, encodeErr := encoder.Encode([]byte(strBody))
-				if encodeErr != nil {
-					fmt.Println("error encoding response: ", encodeErr.Error())
-					return
-				}
+		buf := bytes.NewBuffer(nil)
+		zw := gzip.NewWriter(buf)
+		defer zw.Close()
 
-				body = encodedBody
-				headers["Content-Encoding"] = encoding
-				break
-			}
+		_, writeErr := zw.Write([]byte(str))
+		if writeErr != nil {
+			// return nil, writeErr
+			panic(writeErr)
 		}
+		zw.Flush()
 
-		// If no encoding was applied, use the original body
-		if headers["Content-Encoding"] == "" {
-			headers["Content-Type"] = "text/plain"
-			body = []byte(strBody)
-		}
+		respBuf := bytes.NewBufferString("HTTP/1.1 200 OK\r\n")
+		respBuf.WriteString("Content-Encoding: gzip\r\n")
+		respBuf.WriteString(fmt.Sprintf("Content-Length: %d\r\n", buf.Len()))
+		respBuf.WriteString("\r\n")
+		respBuf.WriteString(buf.String())
 
-		statusCode = 200
+		conn.Write(respBuf.Bytes())
+		return
+
+		// headers["Content-Encoding"] = "gzip"
+		// body = buf.Bytes()
+		// statusCode = 200
+
+		// for _, encoding := range req.Encodings() {
+		// 	if encoder, exists := encoders[encoding]; exists {
+		// 		encodedBody, encodeErr := encoder.Encode([]byte(strBody))
+		// 		if encodeErr != nil {
+		// 			fmt.Println("error encoding response: ", encodeErr.Error())
+		// 			return
+		// 		}
+
+		// 		body = encodedBody
+		// 		headers["Content-Encoding"] = encoding
+		// 		break
+		// 	}
+		// }
+
+		// // If no encoding was applied, use the original body
+		// if headers["Content-Encoding"] == "" {
+		// 	headers["Content-Type"] = "text/plain"
+		// 	body = []byte(strBody)
+		// }
 	} else if strings.Index(req.Path, "/files/") == 0 {
 		// Ensure the directory is set
 		_, filename := path.Split(req.Path)
