@@ -106,11 +106,11 @@ func handleConnection(conn net.Conn) {
 
 		// If no encoding was applied, use the original body
 		if headers["Content-Encoding"] == "" {
+			headers["Content-Type"] = "text/plain"
 			body = []byte(strBody)
 		}
 
 		statusCode = 200
-		// headers["Content-Type"] = "text/plain"
 	} else if strings.Index(req.Path, "/files/") == 0 {
 		// Ensure the directory is set
 		_, filename := path.Split(req.Path)
