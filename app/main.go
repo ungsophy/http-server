@@ -55,7 +55,12 @@ func main() {
 }
 
 func handleConnection(conn net.Conn) {
-	defer conn.Close()
+	defer func() {
+		closeErr := conn.Close()
+		if closeErr != nil {
+			fmt.Println("error closing connection: ", closeErr.Error())
+		}
+	}()
 
 	fmt.Println("new connection from", conn.RemoteAddr().String())
 
@@ -65,6 +70,7 @@ func handleConnection(conn net.Conn) {
 		fmt.Println("error reading request: ", readErr.Error())
 		return
 	}
+
 	req, err := ParseRequest(reqBuf)
 	if err != nil {
 		fmt.Println("error parsing request: ", err.Error())
@@ -93,7 +99,7 @@ func handleConnection(conn net.Conn) {
 				}
 
 				body = encodedBody
-				headers["Content-Encoding"] = encoder.Name()
+				headers["Content-Encoding"] = encoding
 				break
 			}
 		}
