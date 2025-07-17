@@ -110,7 +110,7 @@ func handleConnection(conn net.Conn) {
 		}
 
 		statusCode = 200
-		headers["Content-Type"] = "text/plain"
+		// headers["Content-Type"] = "text/plain"
 	} else if strings.Index(req.Path, "/files/") == 0 {
 		// Ensure the directory is set
 		_, filename := path.Split(req.Path)
