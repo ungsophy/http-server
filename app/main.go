@@ -83,6 +83,7 @@ func handleConnection(conn net.Conn) {
 		body = []byte(req.Headers["User-Agent"])
 	} else if strings.Index(req.Path, "/echo/") == 0 {
 		strBody := strings.Replace(req.Path, "/echo/", "", 1)
+
 		for _, encoding := range req.Encodings() {
 			if encoder, exists := encoders[encoding]; exists {
 				encodedBody, encodeErr := encoder.Encode([]byte(strBody))

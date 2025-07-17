@@ -21,9 +21,9 @@ func (g *GZipEncoder) Encode(data []byte) ([]byte, error) {
 	zw := gzip.NewWriter(&buf)
 	defer zw.Close()
 
-	_, err := zw.Write(data)
-	if err != nil {
-		return nil, err
+	_, writeErr := zw.Write(data)
+	if writeErr != nil {
+		return nil, writeErr
 	}
 	zw.Flush()
 
