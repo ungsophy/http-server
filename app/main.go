@@ -55,19 +55,6 @@ func main() {
 }
 
 func handleConnection(conn net.Conn) {
-	var req *Request
-
-	defer func() {
-		if req.Headers["Connection"] != "close" {
-			return
-		}
-
-		closeErr := conn.Close()
-		if closeErr != nil {
-			fmt.Println("error closing connection: ", closeErr.Error())
-		}
-	}()
-
 	fmt.Println("new connection from", conn.RemoteAddr().String())
 
 	for {
@@ -80,8 +67,7 @@ func handleConnection(conn net.Conn) {
 			return
 		}
 
-		var parseReqErr error
-		req, parseReqErr = ParseRequest(reqBuf)
+		req, parseReqErr := ParseRequest(reqBuf)
 		if parseReqErr != nil {
 			fmt.Println("error parsing request: ", parseReqErr.Error())
 			return
@@ -164,11 +150,26 @@ func handleConnection(conn net.Conn) {
 			}
 		}
 
+		connection := req.Headers["Connection"]
+		if connection == "close" {
+			headers["Connection"] = "close"
+		}
+
 		resp := &Response{
 			StatusCode: statusCode,
 			Headers:    headers,
 			Body:       body,
 		}
 		conn.Write(resp.Bytes())
+
+		if connection != "close" {
+			continue
+		}
+
+		closeErr := conn.Close()
+		if closeErr != nil {
+			fmt.Println("error closing connection: ", closeErr.Error())
+		}
+		break
 	}
 }
