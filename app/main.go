@@ -55,12 +55,12 @@ func main() {
 }
 
 func handleConnection(conn net.Conn) {
-	defer func() {
-		closeErr := conn.Close()
-		if closeErr != nil {
-			fmt.Println("error closing connection: ", closeErr.Error())
-		}
-	}()
+	// defer func() {
+	// 	closeErr := conn.Close()
+	// 	if closeErr != nil {
+	// 		fmt.Println("error closing connection: ", closeErr.Error())
+	// 	}
+	// }()
 
 	fmt.Println("new connection from", conn.RemoteAddr().String())
 
