@@ -14,13 +14,13 @@ type GZipEncoder struct{}
 func (g *GZipEncoder) Encode(data []byte) ([]byte, error) {
 	buf := bytes.NewBuffer(nil)
 	zw := gzip.NewWriter(buf)
-	defer zw.Close()
 
 	_, writeErr := zw.Write(data)
 	if writeErr != nil {
 		return nil, writeErr
 	}
 	zw.Flush()
+	zw.Close()
 
 	return buf.Bytes(), nil
 }
