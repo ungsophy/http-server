@@ -109,6 +109,8 @@ func handleConnection(conn net.Conn) {
 			headers["Content-Type"] = "text/plain"
 			body = []byte(str)
 		}
+
+		statusCode = 200
 	} else if strings.Index(req.Path, "/files/") == 0 {
 		// Ensure the directory is set
 		_, filename := path.Split(req.Path)
