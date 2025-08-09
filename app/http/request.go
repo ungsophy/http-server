@@ -11,6 +11,15 @@ var (
 	delimiter = []byte("\r\n")
 )
 
+type Request struct {
+	Method   string
+	Path     string
+	Protocol string
+	Headers  map[string]string
+	Body     []byte
+	Params   map[string]string
+}
+
 func ParseRequest(data []byte) (*Request, error) {
 	// http request format:
 	//
@@ -72,14 +81,6 @@ func ParseRequest(data []byte) (*Request, error) {
 		Headers:  headers,
 		Body:     body,
 	}, nil
-}
-
-type Request struct {
-	Method   string
-	Path     string
-	Protocol string
-	Headers  map[string]string
-	Body     []byte
 }
 
 func (r *Request) Encodings() []string {

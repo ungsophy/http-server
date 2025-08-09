@@ -1,28 +1,25 @@
 package main
 
 import (
+	"bytes"
+	"compress/gzip"
 	"errors"
 	"flag"
 	"fmt"
 	"io"
-	"net"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
+
+	"github.com/codecrafters-io/http-server-starter-go/app/http"
 )
 
 const (
-	PORT         = "4221"
-	ENCODER_GZIP = "gzip"
+	PORT = "4221"
 )
 
 var (
 	directory = flag.String("directory", "", "--directory /tmp")
-
-	encoders = map[string]Encoder{
-		ENCODER_GZIP: &GZipEncoder{},
-	}
 )
 
 func main() {
@@ -36,140 +33,114 @@ func main() {
 		}
 	}
 
-	listener, listenErr := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%s", PORT))
-	if listenErr != nil {
-		fmt.Printf("failed to bind to port %s\n", PORT)
+	mux := http.NewMux()
+	mux.HandleFunc("GET /", homeHandler)
+	mux.HandleFunc("GET /user-agent", getUserAgentHandler)
+	mux.HandleFunc("GET /echo/{str}", echoHandler)
+	mux.HandleFunc("GET /files/{filename}", readFileHandler)
+	mux.HandleFunc("POST /files/{filename}", createFileHandler)
+
+	server, err := http.NewServer(fmt.Sprintf(":%s", PORT), mux)
+	if err != nil {
+		fmt.Printf("cannot create HTTP server: %v", err.Error())
 		os.Exit(1)
 	}
-	defer listener.Close()
 
-	for {
-		conn, acceptErr := listener.Accept()
-		if acceptErr != nil {
-			fmt.Println("error accepting connection: ", acceptErr.Error())
-			os.Exit(1)
+	startErr := server.Start()
+	if startErr != nil {
+		fmt.Printf("cannot start HTTP server: %v", startErr.Error())
+		os.Exit(1)
+	}
+
+	fmt.Println("closing HTTP server...")
+}
+
+func homeHandler(req *http.Request, resp *http.Response) {
+	resp.StatusCode = 200
+}
+
+func getUserAgentHandler(req *http.Request, resp *http.Response) {
+	resp.StatusCode = 200
+	resp.Headers["Content-Type"] = "text/plain"
+	resp.Body = []byte(req.Headers["User-Agent"])
+}
+
+func echoHandler(req *http.Request, resp *http.Response) {
+	resp.StatusCode = 200
+	resp.Headers["Content-Type"] = "text/plain"
+	resp.Body = []byte(req.Params["str"])
+
+	if strings.Contains(req.Headers["Accept-Encoding"], "gzip") {
+		body, err := gzipCompress(resp.Body)
+		if err != nil {
+			fmt.Printf("cannot gzip %v: %v\n", req.Params["str"], err.Error())
+			resp.StatusCode = 500
+			resp.Body = []byte("cannot gzip")
+			return
 		}
 
-		go handleConnection(conn)
+		resp.Headers["Content-Encoding"] = "gzip"
+		resp.Body = body
 	}
 }
 
-func handleConnection(conn net.Conn) {
-	fmt.Println("new connection from", conn.RemoteAddr().String())
-
-	for {
-		var reqBuf = make([]byte, 1024)
-		_, readErr := conn.Read(reqBuf)
-		if readErr != nil {
-			if !errors.Is(readErr, io.EOF) {
-				fmt.Println("error reading request: ", readErr.Error())
-			}
-			return
-		}
-
-		req, parseReqErr := ParseRequest(reqBuf)
-		if parseReqErr != nil {
-			fmt.Println("error parsing request: ", parseReqErr.Error())
-			return
-		}
-
-		var statusCode int = 404
-		var headers = make(map[string]string)
-		var body []byte
-
-		if req.Path == "/" {
-			statusCode = 200
-		} else if req.Path == "/user-agent" {
-			statusCode = 200
-			headers["Content-Type"] = "text/plain"
-			body = []byte(req.Headers["User-Agent"])
-		} else if strings.Index(req.Path, "/echo/") == 0 {
-			str := strings.Replace(req.Path, "/echo/", "", 1)
-
-			for _, encoding := range req.Encodings() {
-				if encoder, exists := encoders[encoding]; exists {
-					encodedBody, encodeErr := encoder.Encode([]byte(str))
-					if encodeErr != nil {
-						fmt.Println("error encoding response: ", encodeErr.Error())
-						return
-					}
-
-					body = encodedBody
-					headers["Content-Encoding"] = encoding
-					break
-				}
-			}
-
-			// If no encoding was applied, use the original body
-			if headers["Content-Encoding"] == "" {
-				headers["Content-Type"] = "text/plain"
-				body = []byte(str)
-			}
-
-			statusCode = 200
-		} else if strings.Index(req.Path, "/files/") == 0 {
-			// Ensure the directory is set
-			_, filename := path.Split(req.Path)
-			filepath := filepath.Join(*directory, filename)
-
-			switch req.Method {
-			case "GET":
-				file, openErr := os.Open(filepath)
-				defer file.Close()
-
-				if openErr == nil {
-					var readErr error
-					body, readErr = io.ReadAll(file)
-					if readErr != nil {
-						fmt.Println("error reading file: ", readErr.Error())
-						return
-					}
-
-					statusCode = 200
-					headers["Content-Type"] = "application/octet-stream"
-				} else {
-					fmt.Println("error opening file: ", openErr.Error())
-					statusCode = 404
-				}
-			case "POST":
-				file, createErr := os.Create(filepath)
-				defer file.Close()
-
-				if createErr != nil {
-					fmt.Println("error creating file: ", createErr.Error())
-					return
-				}
-
-				_, writeErr := file.Write(req.Body)
-				if writeErr != nil {
-					fmt.Println("error writing file: ", writeErr.Error())
-					statusCode = 500
-				} else {
-					statusCode = 201
-				}
-			}
-		}
-
-		connection := req.Headers["Connection"]
-		if connection == "close" {
-			headers["Connection"] = "close"
-		}
-
-		resp := &Response{
-			StatusCode: statusCode,
-			Headers:    headers,
-			Body:       body,
-		}
-		conn.Write(resp.Bytes())
-
-		if connection != "close" {
-			continue
-		}
-
-		closeErr := conn.Close()
-		if closeErr != nil {
-			fmt.Println("error closing connection: ", closeErr.Error())
-		}
-		break
+func readFileHandler(req *http.Request, resp *http.Response) {
+	filepath := filepath.Join(*directory, req.Params["filename"])
+	file, openErr := os.Open(filepath)
+	if openErr != nil {
+		fmt.Println("error opening file: ", openErr.Error())
+		resp.StatusCode = 404
+		return
 	}
+	defer file.Close()
+
+	body, readErr := io.ReadAll(file)
+	if readErr != nil {
+		fmt.Printf("error reading file from %v: %v\n", filepath, readErr.Error())
+		resp.StatusCode = 500
+		resp.Body = []byte("cannot read from file")
+		return
+	}
+
+	resp.StatusCode = 200
+	resp.Headers["Content-Type"] = "application/octet-stream"
+	resp.Body = body
+}
+
+func createFileHandler(req *http.Request, resp *http.Response) {
+	filepath := filepath.Join(*directory, req.Params["filename"])
+	file, createErr := os.Create(filepath)
+	if createErr != nil {
+		fmt.Println("error creating file: ", createErr.Error())
+		resp.StatusCode = 500
+		resp.Body = []byte("cannot create file")
+		return
+	}
+	defer file.Close()
+
+	_, writeErr := file.Write(req.Body)
+	if writeErr != nil {
+		fmt.Println("error writing file: ", writeErr.Error())
+		resp.StatusCode = 500
+		resp.Body = []byte("cannot write to file")
+		return
+	}
+
+	resp.StatusCode = 201
+}
+
+func gzipCompress(data []byte) ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	zw := gzip.NewWriter(buf)
+
+	_, writeErr := zw.Write(data)
+	if writeErr != nil {
+		return nil, writeErr
+	}
+	zw.Flush()
+	// Close gzip writer before reading from buffer
+	// to make sure that gzip footer is written to the buffer
+	zw.Close()
+
+	return buf.Bytes(), nil
 }
