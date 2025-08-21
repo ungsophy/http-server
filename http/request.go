@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"strconv"
-	"strings"
 )
 
 var (
@@ -23,7 +22,7 @@ type Request struct {
 func ParseRequest(data []byte) (*Request, error) {
 	// http request format:
 	//
-	// GET /index HTTP/1.1\r\n
+	// POST /index HTTP/1.1\r\n
 	// Host: example.com\r\n
 	// \r\n
 	// body
@@ -81,18 +80,4 @@ func ParseRequest(data []byte) (*Request, error) {
 		Headers:  headers,
 		Body:     body,
 	}, nil
-}
-
-func (r *Request) Encodings() []string {
-	var encodings []string
-
-	acceptEncoding, exists := r.Headers["Accept-Encoding"]
-	if exists {
-		tmpEncodings := strings.Split(acceptEncoding, ",")
-		for _, encoding := range tmpEncodings {
-			encodings = append(encodings, strings.TrimSpace(encoding))
-		}
-	}
-
-	return encodings
 }

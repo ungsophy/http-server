@@ -7,11 +7,12 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/codecrafters-io/http-server-starter-go/app/http"
+	"github.com/codecrafters-io/http-server-starter-go/http"
 )
 
 const (
@@ -33,14 +34,16 @@ func main() {
 		}
 	}
 
-	mux := http.NewMux()
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+
+	mux := http.NewMux(logger)
 	mux.HandleFunc("GET /", homeHandler)
 	mux.HandleFunc("GET /user-agent", getUserAgentHandler)
 	mux.HandleFunc("GET /echo/{str}", echoHandler)
 	mux.HandleFunc("GET /files/{filename}", readFileHandler)
 	mux.HandleFunc("POST /files/{filename}", createFileHandler)
 
-	server, err := http.NewServer(fmt.Sprintf(":%s", PORT), mux)
+	server, err := http.NewServer(fmt.Sprintf(":%s", PORT), mux, logger)
 	if err != nil {
 		fmt.Printf("cannot create HTTP server: %v", err.Error())
 		os.Exit(1)

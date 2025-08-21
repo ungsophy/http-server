@@ -5,6 +5,10 @@ import (
 	"fmt"
 )
 
+const (
+	protocolVersion1_1 = "HTTP/1.1"
+)
+
 var (
 	statusMap = map[int]string{
 		200: "OK",
@@ -23,6 +27,8 @@ type Response struct {
 
 func NewResponse() *Response {
 	return &Response{
+		protocol: protocolVersion1_1,
+
 		Headers: make(map[string]string),
 		Body:    make([]byte, 0),
 	}
@@ -32,7 +38,7 @@ func (r *Response) Bytes() []byte {
 	var b bytes.Buffer
 
 	// Write the status line
-	b.WriteString(fmt.Sprintf("%v %v\r\n", r.HTTPProtocol(), r.Status()))
+	b.WriteString(fmt.Sprintf("%v %v\r\n", r.strProtocol(), r.strStatus()))
 
 	// Write headers
 	for k, v := range r.Headers {
@@ -50,15 +56,15 @@ func (r *Response) Bytes() []byte {
 	return b.Bytes()
 }
 
-func (r *Response) HTTPProtocol() string {
+func (r *Response) strProtocol() string {
 	if r.protocol == "" {
-		return "HTTP/1.1"
+		return protocolVersion1_1
 	}
 
 	return r.protocol
 }
 
-func (r *Response) Status() string {
+func (r *Response) strStatus() string {
 	strStatus, exists := statusMap[r.StatusCode]
 	if exists {
 		return fmt.Sprintf("%d %s", r.StatusCode, strStatus)
