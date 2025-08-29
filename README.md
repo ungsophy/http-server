@@ -46,5 +46,17 @@ Create a new file with content from the request body in --directory
 Call the echo endpoint and gzip the response
 
 ```bash
-curl -H "Accept-Encoding: gzip" http://localhost:4221/echo/hello | gunzip -c
+$ curl -H "Accept-Encoding: gzip" http://localhost:4221/echo/hello | gunzip -c
+```
+
+Create a new file
+
+```bash
+$ curl --data "hello" -H "Content-Type: application/octet-stream" http://localhost:4221/files/hello
+```
+
+Fetch content of a file
+
+```bash
+$ curl http://localhost:4221/files/hello
 ```
