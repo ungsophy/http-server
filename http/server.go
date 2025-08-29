@@ -13,32 +13,39 @@ const (
 )
 
 type Server struct {
-	running bool
-	logger  *slog.Logger
+	running  bool
+	logger   *slog.Logger
+	listener net.Listener
 
 	Address string
 	Handler *Mux
+	Created chan bool
 }
 
 func NewServer(address string, handler *Mux, logger *slog.Logger) (*Server, error) {
 	return &Server{
+		logger: logger,
+
 		Address: address,
 		Handler: handler,
-		logger:  logger,
+		Created: make(chan bool, 1),
 	}, nil
 }
 
 func (s *Server) Start() error {
-	s.running = true
-
-	listener, listenErr := net.Listen("tcp", s.Address)
+	var listenErr error
+	s.listener, listenErr = net.Listen("tcp", s.Address)
 	if listenErr != nil {
 		return fmt.Errorf("cannot start tcp server on %v: %w", s.Address, listenErr)
 	}
+
+	s.Created <- true
+	s.running = true
+
 	defer func() {
-		closeErr := listener.Close()
-		if closeErr != nil {
-			s.logger.Error("error closing listener", "error", closeErr)
+		err := s.listener.Close()
+		if err != nil {
+			s.logger.Error("error closing listener", "error", err)
 		}
 
 		s.logger.Info("server is stopped")
@@ -50,7 +57,7 @@ func (s *Server) Start() error {
 			return nil
 		}
 
-		conn, acceptErr := listener.Accept()
+		conn, acceptErr := s.listener.Accept()
 		if acceptErr != nil {
 			return fmt.Errorf("error accepting connection: %w", acceptErr)
 		}
@@ -60,8 +67,13 @@ func (s *Server) Start() error {
 	}
 }
 
-func (s *Server) Stop() {
-	s.running = false
+func (s *Server) Stop() error {
+	err := s.listener.Close()
+	if err != nil {
+		return fmt.Errorf("error closing listener: %w", err)
+	}
+
+	return nil
 }
 
 func (s *Server) handleConnection(conn net.Conn) {

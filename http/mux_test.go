@@ -2,6 +2,8 @@ package http_test
 
 import (
 	"fmt"
+	"io"
+	"log/slog"
 	"testing"
 
 	"github.com/codecrafters-io/http-server-starter-go/http"
@@ -21,6 +23,8 @@ func TestHandleFunc(t *testing.T) {
 		return err
 	}
 
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
 	t.Run("invalid pattern", func(t *testing.T) {
 		t.Run("pattern does not have http method", func(t *testing.T) {
 			defer func() {
@@ -33,7 +37,7 @@ func TestHandleFunc(t *testing.T) {
 				}
 			}()
 
-			mux := http.NewMux()
+			mux := http.NewMux(logger)
 			mux.HandleFunc("/invalid-pattern", func(req *http.Request, resp *http.Response) {})
 		})
 
@@ -48,7 +52,7 @@ func TestHandleFunc(t *testing.T) {
 				}
 			}()
 
-			mux := http.NewMux()
+			mux := http.NewMux(logger)
 			mux.HandleFunc("FOO /index", func(req *http.Request, resp *http.Response) {})
 		})
 
@@ -62,7 +66,7 @@ func TestHandleFunc(t *testing.T) {
 				}
 			}()
 
-			mux := http.NewMux()
+			mux := http.NewMux(logger)
 			mux.HandleFunc("GET index", func(req *http.Request, resp *http.Response) {})
 		})
 	})
@@ -77,13 +81,13 @@ func TestHandleFunc(t *testing.T) {
 			}
 		}()
 
-		mux := http.NewMux()
+		mux := http.NewMux(logger)
 		mux.HandleFunc("GET /index", func(req *http.Request, resp *http.Response) {})
 		mux.HandleFunc("GET /index", func(req *http.Request, resp *http.Response) {})
 	})
 
 	t.Run("path params", func(t *testing.T) {
-		mux := http.NewMux()
+		mux := http.NewMux(logger)
 		mux.HandleFunc("GET /files/{filename}", func(req *http.Request, resp *http.Response) {
 			resp.StatusCode = 200
 			strBody := fmt.Sprintf("File: %s", req.Params["filename"])
@@ -110,8 +114,10 @@ func TestHandleFunc(t *testing.T) {
 }
 
 func TestHandleRequest(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
 	t.Run("executes handler that matches route", func(t *testing.T) {
-		mux := http.NewMux()
+		mux := http.NewMux(logger)
 		mux.HandleFunc("GET /index", func(req *http.Request, resp *http.Response) {
 			resp.Body = []byte("index")
 		})
@@ -132,7 +138,7 @@ func TestHandleRequest(t *testing.T) {
 	})
 
 	t.Run("returns not found handler when no route matches", func(t *testing.T) {
-		mux := http.NewMux()
+		mux := http.NewMux(logger)
 		req := &http.Request{
 			Method: "GET",
 			Path:   "/not-found",
@@ -150,7 +156,7 @@ func TestHandleRequest(t *testing.T) {
 	})
 
 	t.Run("returns a 200 status code when response status code is not explicitly set", func(t *testing.T) {
-		mux := http.NewMux()
+		mux := http.NewMux(logger)
 		mux.HandleFunc("GET /index", func(req *http.Request, resp *http.Response) {})
 
 		req := &http.Request{
@@ -166,7 +172,7 @@ func TestHandleRequest(t *testing.T) {
 	})
 
 	t.Run("sets Connection header to close when request has Connection: close", func(t *testing.T) {
-		mux := http.NewMux()
+		mux := http.NewMux(logger)
 		mux.HandleFunc("GET /index", func(req *http.Request, resp *http.Response) {})
 
 		req := &http.Request{
